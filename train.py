@@ -29,26 +29,38 @@ class AE(nn.Module):
         activation = self.decoder_output_layer(activation)
         reconstructed = torch.relu(activation)
         return reconstructed
-    
+
+
+# def calculate_accuracy(model, data_loader, device):
+#     num_samples = len(data_loader.dataset)
+#     correct = 0
+
+#     with torch.no_grad():
+#         for batch_features, _ in data_loader:
+#             batch_features = batch_features.view(-1, 784).to(device)
+#             outputs = model(batch_features)
+#             mse = nn.MSELoss(reduction='none')(outputs, batch_features)
+#             mse = mse.sum(dim=1)  # Sum the reconstruction errors along the features
+#             correct += (mse < 0.5).sum().item()  # Count correct reconstructions (you can adjust the threshold)
+
+#     accuracy = correct / num_samples
+#     return accuracy
 if __name__ == "__main__":
-    #  use gpu if available
+    # Use GPU if available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(device)
-    # create a model from `AE` autoencoder class
-    # load it to the specified device, either gpu or cpu
+
+    # Create a model from `AE` autoencoder class
+    # Load it to the specified device, either GPU or CPU
     model = AE(input_shape=784).to(device)
 
-    # create an optimizer object
-    # Adam optimizer with learning rate 1e-3
+    # Create an optimizer object (Adam optimizer with learning rate 1e-3)
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
-    # mean-squared error loss
+    # Mean squared error loss
     criterion = nn.MSELoss()
 
-    ## dataset loader mnist 
-
+    # MNIST dataset loader
     transform = torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
-
     train_dataset = torchvision.datasets.MNIST(
         root="~/torch_datasets", train=True, transform=transform, download=True
     )
@@ -69,34 +81,23 @@ if __name__ == "__main__":
     for epoch in range(epochs):
         loss = 0
         for batch_features, _ in train_loader:
-            # reshape mini-batch data to [N, 784] matrix
-            # load it to the active device
             batch_features = batch_features.view(-1, 784).to(device)
-            
-            # reset the gradients back to zero
-            # PyTorch accumulates gradients on subsequent backward passes
             optimizer.zero_grad()
-            
-            # compute reconstructions
             outputs = model(batch_features)
-            
-            # compute training reconstruction loss
             train_loss = criterion(outputs, batch_features)
-            
-            # compute accumulated gradients
             train_loss.backward()
-            
-            # perform parameter update based on current gradients
             optimizer.step()
-            
-            # add the mini-batch training loss to epoch loss
             loss += train_loss.item()
-        
-        # compute the epoch training loss
+
         loss = loss / len(train_loader)
-        
-        # display the epoch training loss
-        print("epoch : {}/{}, loss = {:.6f}".format(epoch + 1, epochs, loss))
+        print("Epoch : {}/{}, Loss = {:.6f}".format(epoch + 1, epochs, loss))
+
+    # Calculate the reconstruction loss as a percentage
+    max_possible_loss = 784.0  # The maximum possible loss (if all pixel values are 1)
+    loss = loss*100
+    reconstruction_loss_percentage = (loss / max_possible_loss) * 100.0
+
+    print("Reconstruction accuracy: {:.2f}%".format(100 - reconstruction_loss_percentage))
 
     torch.save(model.state_dict(), "autoencoder_model.pth")
     print("Model saved.")
